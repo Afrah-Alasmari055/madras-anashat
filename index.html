@@ -741,7 +741,7 @@
       return {
         title: hasDate ? parts.slice(1).join(' - ') : base,
         date: hasDate ? parts[0] : '',
-        url: `${GH_VIDEOS_PATH}/${f.name}`
+        url: f.download_url || `${GH_VIDEOS_PATH}/${encodeURIComponent(f.name)}`
       };
     }).sort((a,b) => (a.date || a.title).localeCompare(b.date || b.title));
     return true;
@@ -835,8 +835,28 @@
     }catch(e){ /* تبويب الطالبات غير موجود بعد */ }
   }
 
-  // ===== صور أبرز الأنشطة — تبويب "الصور": الرابط | الوصف =====
+  // ===== صور أبرز الأنشطة — الأسهل: مجلد "gallery" على GitHub، أو تبويب "الصور": الرابط | الوصف =====
+  const GH_GALLERY_PATH = "gallery";
+
+  async function loadGalleryFromGithub(){
+    if(!GH_OWNER || !GH_REPO) return false;
+    const res = await fetch(`https://api.github.com/repos/${GH_OWNER}/${GH_REPO}/contents/${GH_GALLERY_PATH}`);
+    if(!res.ok) return false;
+    const files = await res.json();
+    if(!Array.isArray(files)) return false;
+    const imgs = files.filter(f => f.type === 'file' && /\.(jpg|jpeg|png|webp|gif)$/i.test(f.name));
+    if(!imgs.length) return false;
+    document.getElementById('galleryGrid').innerHTML = imgs.map(f => {
+      const desc = f.name.replace(/\.[^.]+$/, '');
+      return `<div class="g-item g-photo" style="background-image:url('${f.download_url || GH_GALLERY_PATH + '/' + encodeURIComponent(f.name)}')" title="${esc(desc)}"></div>`;
+    }).join('');
+    return true;
+  }
+
   async function renderGallery(){
+    try{
+      if(await loadGalleryFromGithub()) return;
+    }catch(e){ /* تعذر الوصول لمجلد gallery على GitHub */ }
     try{
       const rows = await fetchSheetRows('الصور');
       if(!rows.length) return;
